@@ -1,0 +1,17 @@
+{
+  "name": "turkcealtyazi-stremio-addon",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "gorlev",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.21.1",
+    "cheerio": "^1.0.0-rc.5",
+    "express": "^4.17.1",
+    "stremio-addons": "^2.8.14"
+  }
+}
