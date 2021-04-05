@@ -15,7 +15,9 @@ npm start
 ```
 
 Add the addon to stremio from browser:
+```
 stremio://127.0.0.1:3648/manifest.json
+```
 
 or from the addon search menu:
 ```
