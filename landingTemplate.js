@@ -47,21 +47,28 @@ a.install-link {
 }
 
 button {
-   border: 0px;
-   outline: 0px;
+   border: 0;
+   outline: 0;
    color: white;
-   background: rgba(125, 79, 158, 0.85);
-   padding: 13px 22px;
+   background: #8A5AAB;
+   padding: 1.2vh 3.5vh;
+   margin: auto;
    text-align: center;
-   font-size: 17px;
-   font-weight: 300;
+   font-family: 'Open Sans', Arial, sans-serif;
+   font-size: 2.2vh;
+   font-weight: 600;
    cursor: pointer;
-   opacity: 0.9;
-   display: block
+   display: block;
+   box-shadow: 0 0.5vh 1vh rgba(0, 0, 0, 0.2);
+   transition: box-shadow 0.1s ease-in-out;
 }
 
 button:hover {
-   opacity: 1
+   box-shadow: none;
+}
+
+button:active {
+   box-shadow: 0 0 0 0.5vh white inset;
 }
 
 .logo {
@@ -124,15 +131,26 @@ function landingTemplate(manifest) {
          <h2 class="version">${manifest.version || '0.0.0'}</h2>
          <h2 class="description">${manifest.description || ''}</h2>
          <div class="separator"></div>
-         <h3 class="gives">This addon has more :</h3>
+
+         <h3 class="gives">Bu eklenti şunları destekler:</h3>
          <ul>
-            ${stylizedTypes.map(t => `<li>${t}</li>`).join('')}
+            <li>Filmler</li><li>Diziler</li>
+         </ul>
          </ul>
          <div class="separator"></div>
          <a id="installLink" class="install-link" href="#">
-            <button name="Install">INSTALL</button>
+            <button name="Install">YÜKLE</button>
          </a>
-         ${contactHTML}
+         <div class="separator"></div>
+         <p>Bu eklenti şu anda beta sürecindedir.<br>
+         <div class="separator"></div>
+         <p>TurkceAltyazi.org yurtdışından erişimde CloudFlare ile korunduğundan bu eklentinin çeşitli maliyetleri olmaktadır. Bu maliyetleri ne kadar uzun süre karşılayabilirim bilemediğimden yapacağınız en küçük bağış eklentinin hayatta kalabilmesi için faydalı olacaktır.<br>
+         <p>BTC: 1QC9HKAdibRAQuXxrt3RMtWaUKCU5XznDs<br>
+         <p>ETH: 0x2f807adfb3daf3d25a65861912124f0b408023cf<br>
+         <div class="separator"></div>
+
+         <p>İletişim: gorlevdev@gmail.com<br>
+
       </div>
       <script>
          installLink.href = 'stremio://' + window.location.host + '/manifest.json'

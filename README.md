@@ -1,11 +1,21 @@
-# turkcealtyaziorg-stremio-addon
+# TurkceAltyaziOrg-Stremio-Addon
 This is an unofficial Stremio Addon for Turkish Subtitles from turkcealtyazi.org.
 
 
 ## Installation
 
+### Remote
+You can install it through
+```
+https://5a0d1888fa64-turkcealtyaziorg.baby-beamup.club
+```
+or
+```
+stremio://5a0d1888fa64-turkcealtyaziorg.baby-beamup.club/manifest.json
+```
+
 ### Local
-Download and install * [Node.js](https://nodejs.org/en/download/) on your computer, then install and launch the addon from Powershell, CMD, or any kind of Terminal:
+Download and install [Node.js](https://nodejs.org/en/download/) on your computer, then install and launch the addon from Powershell, CMD, or any kind of Terminal:
 
 ```
 git clone https://github.com/gorlev/turkcealtyaziorg-stremio-addon.git
