@@ -7,11 +7,11 @@ const subtitlePageFinder = require("./lib/subtitlePageFinder");
 const config = require('./config');
 const MANIFEST = require('./manifest');
 
-// const HttpsProxyAgent = require("https-proxy-agent");
-// const proxyAgent = new HttpsProxyAgent({host: process.env.PROXY.split(":")[0], port: process.env.PROXY.split(":")[1], auth:`${process.env.PROXY.split(":")[2]}:${process.env.PROXY.split(":")[3]}`})
+const HttpsProxyAgent = require("https-proxy-agent");
+const proxyAgent = new HttpsProxyAgent({host: process.env.PROXY.split(":")[0], port: process.env.PROXY.split(":")[1], auth:`${process.env.PROXY.split(":")[2]}:${process.env.PROXY.split(":")[3]}`})
 
-var SocksProxyAgent = require('socks-proxy-agent');
-const proxyAgent = new SocksProxyAgent({host: process.env.PROXY.split(":")[0], port: process.env.PROXY.split(":")[1], auth:`${process.env.PROXY.split(":")[2]}:${process.env.PROXY.split(":")[3]}`})
+// var SocksProxyAgent = require('socks-proxy-agent');
+// const proxyAgent = new SocksProxyAgent({host: process.env.PROXY.split(":")[0].trim(), port: process.env.PROXY.split(":")[1].trim(), auth:`${process.env.PROXY.split(":")[2].trim()}:${process.env.PROXY.split(":")[3].trim()}`})
 
 var respond = function (res, data) {
   res.setHeader('Access-Control-Allow-Origin', '*');

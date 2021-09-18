@@ -1,6 +1,6 @@
 module.exports={
     id: "org.community.turkcealtyaziorg",
-    version: "1.0.1",
+    version: "1.0.2",
     name: "TurkceAltyazi.Org",
     logo: "https://turkcealtyazi.org/images/apple/ilogo144.png",
     description: "Bu eklenti,TurkceAltyazi.org'dan tüm Türkçe altyazıları alır ve Stremio'nuza getirir.",
