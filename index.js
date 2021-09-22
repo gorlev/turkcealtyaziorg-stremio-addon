@@ -6,27 +6,23 @@ const axios = require('axios')
 const subtitlePageFinder = require("./lib/subtitlePageFinder");
 const config = require('./config');
 const MANIFEST = require('./manifest');
-
-
 const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
 const proxy = process.env.PROXY_LINK;
 
-let agentConfig = {
+const agentConfig = {
   proxy: proxy,
   keepAlive: true,
   keepAliveMsecs: 2000,
   maxSockets: 256,
   maxFreeSockets: 256,
 };
-// axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
-// axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
+const CACHE_MAX_AGE = 4 * 60 * 60; // 4 hours in seconds
+const CACHE_MAX_AGE_EMPTY = 30 * 60; // 30 minutes
+const STALE_REVALIDATE_AGE = 4 * 60 * 60; // 4 hours
+const STALE_ERROR_AGE = 7 * 24 * 60 * 60; // 7 days
 
-// var HttpsProxyAgent = require("https-proxy-agent");
-// const proxyAgent = new HttpsProxyAgent({host: process.env.PROXY.split(":")[0], port: process.env.PROXY.split(":")[1], auth:`${process.env.PROXY.split(":")[2]}:${process.env.PROXY.split(":")[3]}`})
-// const proxyAgent = new HttpsProxyAgent(process.env.PROXY_LINK)
-
-// var SocksProxyAgent = require('socks-proxy-agent');
-// const proxyAgent = new SocksProxyAgent({host: process.env.PROXY.split(":")[0].trim(), port: process.env.PROXY.split(":")[1].trim(), auth:`${process.env.PROXY.split(":")[2].trim()}:${process.env.PROXY.split(":")[3].trim()}`})
+axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
+axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
 
 var respond = function (res, data) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -44,22 +40,9 @@ addon.get('/manifest.json', function (req, res) {
   respond(res, MANIFEST);
 });
 
-addon.get('/myip', async function (req, res) {
-  try {
-    axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
-    axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
-  
-    let ipres = await axios({url:"https://api.ipify.org/?format=json", method: "GET"});
-    return res.send(ipres.data.ip)
-
-  } catch (err) {
-    return res.send(err)
-  }
-});
 addon.get('/download/:idid\-:altid.zip', async function (req, res) {
   try {
-    axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
-    axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
+
     const response = await axios({url: 'https://turkcealtyazi.org/ind', method: "POST", headers: {"Accept": 'application/zip'}, data:`idid=${req.params.idid}&altid=${req.params.altid}`, responseEncoding: "null", responseType: 'arraybuffer'});
     return res.send(response.data)
 
@@ -77,18 +60,19 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     let type = req.params.type
 	  const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
 	  
-    respond(res, { "subtitles" : subtitles});
+    respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
 
 	} catch (err) {
 		console.log("Subtitle request error.");
 		console.log(err);
+    respond(res, { "subtitles" : [] });
 	}
 })
 
 if (module.parent) {
   module.exports = addon;
 } else {
-  addon.listen( config.port, function () {
+  addon.listen(config.port, function () {
     console.log(config)
   });
 }

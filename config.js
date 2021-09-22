@@ -3,7 +3,7 @@ var env = process.env.NODE_ENV ? 'beamup':'local';
 var config = {
 
     turkceAltyaziURL: 'turkcealtyazi.org',
-    proxy: process.env.PROXY.split(":")[0] + ":" + process.env.PROXY.split(":")[1]
+    proxy: process.env.PROXY_LINK.split(":")[2].split("@")[1] + ":" + process.env.PROXY_LINK.split(":")[3]
 
 }
 
