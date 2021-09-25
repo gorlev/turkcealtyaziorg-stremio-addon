@@ -16,13 +16,13 @@ const agentConfig = {
   maxSockets: 256,
   maxFreeSockets: 256,
 };
-const CACHE_MAX_AGE = 4 * 60 * 60; // 4 hours in seconds
-const CACHE_MAX_AGE_EMPTY = 30 * 60; // 30 minutes
-const STALE_REVALIDATE_AGE = 4 * 60 * 60; // 4 hours
-const STALE_ERROR_AGE = 7 * 24 * 60 * 60; // 7 days
 
 axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
 axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
+
+const CACHE_MAX_AGE = 4 * 60 * 60; // 4 hours in seconds
+const STALE_REVALIDATE_AGE = 4 * 60 * 60; // 4 hours
+const STALE_ERROR_AGE = 7 * 24 * 60 * 60; // 7 days
 
 var respond = function (res, data) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,7 +32,7 @@ var respond = function (res, data) {
 };
 
 addon.get('/', function (req, res) {
-	res.set('Content-Type', 'text/html');
+  res.set('Content-Type', 'text/html');
 	res.send(landing(MANIFEST));
 });
 
@@ -42,29 +42,28 @@ addon.get('/manifest.json', function (req, res) {
 
 addon.get('/download/:idid\-:altid.zip', async function (req, res) {
   try {
-
     const response = await axios({url: 'https://turkcealtyazi.org/ind', method: "POST", headers: {"Accept": 'application/zip'}, data:`idid=${req.params.idid}&altid=${req.params.altid}`, responseEncoding: "null", responseType: 'arraybuffer'});
     return res.send(response.data)
-
+    
   } catch (err) {
-    return res.send(err)
+    console.log(err)
+    return res.send("Couldn't get the subtitle.")
   }
 });
 
 addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
-	try {
-
+  try {
+    
     let videoId =  req.params.imdbId.split(":")[0]
     let season = Number(req.params.imdbId.split(":")[1])
     let episode = Number(req.params.imdbId.split(":")[2])
     let type = req.params.type
-	  const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
 	  
+    const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
     respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
-
+    
 	} catch (err) {
-		console.log("Subtitle request error.");
-		console.log(err);
+    console.log(err);
     respond(res, { "subtitles" : [] });
 	}
 })
