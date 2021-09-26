@@ -1,6 +1,6 @@
 module.exports={
     id: "org.community.turkcealtyaziorg",
-    version: "1.0.5",
+    version: "1.0.6",
     name: "TurkceAltyazi.Org",
     logo: "https://raw.githubusercontent.com/gorlev/turkcealtyaziorg-stremio-addon/master/images/logo.png",
     description: "Bu eklenti,TurkceAltyazi.org'dan tüm Türkçe altyazıları alır ve Stremio'nuza getirir.",

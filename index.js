@@ -55,15 +55,12 @@ addon.get('/download/:idid\-:altid.zip', async function (req, res) {
 
 addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
   try {
-    
     let videoId =  req.params.imdbId.split(":")[0]
     let season = Number(req.params.imdbId.split(":")[1])
     let episode = Number(req.params.imdbId.split(":")[2])
     let type = req.params.type
 	  
     const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
-    console.log(subtitles)
-    console.log(videoId,req.params.query)
     respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
     
 	} catch (err) {
@@ -71,6 +68,34 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     respond(res, { "subtitles" : [] });
 	}
 })
+
+addon.get('/addon-status', async function (req, res) {
+  try {
+    let proxyStatus, websiteStatus
+
+    const responseProxy = await axios.get("https://api.ipify.org/?format=json");
+    const responseWebsite = await axios.get("https://api-prod.downfor.cloud/httpcheck/https://turkcealtyazi.org")
+
+    if(responseProxy.data.ip = axios.defaults.httpsAgent.proxy.hostname){
+      proxyStatus = "OK!"
+    } else {
+      proxyStatus = "FAIL!"
+    }
+
+    if(responseWebsite.data.isDown === false) {
+      websiteStatus = "OK!"
+    }else if (responseWebsite.data.isDown === true){
+      websiteStatus = "DOWN!"
+    }
+
+    return res.send(`Proxy Status: ${proxyStatus} - Website Status: ${websiteStatus}`)
+    
+  } catch (err) {
+    console.log(err)
+    return res.send("Error ocurred.")
+  }
+});
+
 
 if (module.parent) {
   module.exports = addon;
