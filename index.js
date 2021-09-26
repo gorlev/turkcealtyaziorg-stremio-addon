@@ -42,6 +42,8 @@ addon.get('/manifest.json', function (req, res) {
 
 addon.get('/download/:idid\-:altid.zip', async function (req, res) {
   try {
+    res.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, stale-while-revalidate:${STALE_REVALIDATE_AGE}, stale-if-error:${STALE_ERROR_AGE}`);
+    
     const response = await axios({url: 'https://turkcealtyazi.org/ind', method: "POST", headers: {"Accept": 'application/zip'}, data:`idid=${req.params.idid}&altid=${req.params.altid}`, responseEncoding: "null", responseType: 'arraybuffer'});
     return res.send(response.data)
     
@@ -60,6 +62,8 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     let type = req.params.type
 	  
     const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
+    console.log(subtitles)
+    console.log(videoId,req.params.query)
     respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
     
 	} catch (err) {
