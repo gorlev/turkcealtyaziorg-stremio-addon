@@ -8,6 +8,11 @@ const config = require('./config');
 const MANIFEST = require('./manifest');
 const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
 const proxy = process.env.PROXY_LINK;
+const NodeCache = require( "node-cache" );
+
+
+
+const myCache = new NodeCache(); // 2 hours - 5 minutes
 
 const agentConfig = {
   proxy: proxy,
@@ -60,14 +65,34 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     let episode = Number(req.params.imdbId.split(":")[2])
     let type = req.params.type
 	  
-    const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
-    respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
-    
+    let ttl = 2 * 60 * 60  // 2 hours
+
+    if (myCache.has(req.params.imdbId)) {
+      respond(res, myCache.get(req.params.imdbId)); 
+    } else {
+      const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
+      if (subtitles.length > 0){
+        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, {stdTTL:ttl, checkperiod: 300})
+        respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
+      } else {
+        respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
+      }
+    }
+
 	} catch (err) {
     console.log(err);
     respond(res, { "subtitles" : [] });
 	}
 })
+
+addon.get('/cache-status', function (req, res) {
+  try {
+    return res.send(myCache.getStats())
+  } catch (err) {
+    console.log(err)
+    return res.send("Error ocurred.")
+  }
+});
 
 addon.get('/addon-status', async function (req, res) {
   try {
@@ -95,7 +120,6 @@ addon.get('/addon-status', async function (req, res) {
     return res.send("Error ocurred.")
   }
 });
-
 
 if (module.parent) {
   module.exports = addon;
