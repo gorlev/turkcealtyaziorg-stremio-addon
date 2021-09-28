@@ -10,9 +10,7 @@ const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
 const proxy = process.env.PROXY_LINK;
 const NodeCache = require( "node-cache" );
 
-
-
-const myCache = new NodeCache(); // 2 hours - 5 minutes
+const myCache = new NodeCache();
 
 const agentConfig = {
   proxy: proxy,
@@ -72,7 +70,7 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     } else {
       const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
       if (subtitles.length > 0){
-        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, {stdTTL:ttl, checkperiod: 300})
+        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, ttl)
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
       } else {
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
