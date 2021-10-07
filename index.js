@@ -62,17 +62,16 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
     let season = Number(req.params.imdbId.split(":")[1])
     let episode = Number(req.params.imdbId.split(":")[2])
     let type = req.params.type
-	  
-    let ttl = 2 * 60 * 60  // 2 hours
-
+	    
     if (myCache.has(req.params.imdbId)) {
       respond(res, myCache.get(req.params.imdbId)); 
     } else {
       const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
       if (subtitles.length > 0){
-        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, ttl)
+        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 2*60*60) // 2 hours
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
       } else {
+        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 10*60) // 10 mins
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
       }
     }
