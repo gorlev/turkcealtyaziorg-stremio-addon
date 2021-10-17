@@ -56,7 +56,7 @@ addon.get('/download/:idid\-:altid.zip', async function (req, res) {
   }
 });
 
-addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
+addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
   try {
     let videoId =  req.params.imdbId.split(":")[0]
     let season = Number(req.params.imdbId.split(":")[1])
@@ -71,8 +71,8 @@ addon.get('/subtitles/:type/:imdbId/:query.json', async (req, res) => {
         myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 2*60*60) // 2 hours
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
       } else {
-        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 10*60) // 10 mins
-        respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
+        myCache.set(req.params.imdbId, {subtitles: subtitles}, 10*60) // 10 mins
+        respond(res, { subtitles: subtitles});
       }
     }
 
