@@ -1,22 +1,66 @@
-const mainPageFinder = require("./mainPageFinder");
-const cheerio = require('cheerio');
-const { default: axios } = require("axios");
-const subIDfinder = require("./subIDfinder");
-const config = require('../config');
+const axios = require('axios').default;
 const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
+const cheerio = require('cheerio');
+const config = require('./config');
+require('dotenv').config();
 
-//SCRAPES AND FINDS THE SUBTITLES FOR THE GIVEN PARAMETERS ON SUBTITLES LISTING PAGE. 
-module.exports = async function subtitlePageFinder(imdbId,type, season, episode, agentConfig) {
+const agentConfig = {
+    proxy: process.env.PROXY_LINK,
+    keepAlive: true,
+    keepAliveMsecs: 2000,
+    maxSockets: 256,
+    maxFreeSockets: 256,
+  };
+
+axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
+axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
+
+async function mainPageFinder(imdbId) {
+    try {
+        
+        const editedId = imdbId.substring(2)
+        const response = await axios({url:`https://turkcealtyazi.org/things_.php?t=99&term=${editedId}`, method:"GET", headers:{"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36"}})
+
+        if (response.status === 200){
+            const mainPageURL = "https://turkcealtyazi.org" + response.data[0].url
+            return mainPageURL
+        } else {
+            return mainPageURL = ""
+        }
+    } catch (e) {
+        console.log("Subtitle page couldn't find on turkcealtyazi.org",e)
+    }
+}
+
+async function subIDfinder(subLink) {
+    try {
+
+        const response = await axios({url:subLink, method:"GET", headers:{"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36"}});
+
+        $ = cheerio.load(response.data)
+        let subIDs = []
+
+        $('form[action="/ind"] > div').each((i, section) => {
+            let idid = $(section).children('input[name="idid"]').attr('value')
+            let altid = $(section).children('input[name="altid"]').attr('value')
+            subIDs.push({idid: idid, altid: altid})    
+        }).get()    
+
+        return subIDs
+
+    } catch (e) {
+        console.log("Sub IDs could not found!",e)
+    }
+}
+
+async function subtitlePageFinder(imdbId,type, season, episode) {
     
     try {
 
-        axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
-        axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
-
-        let subtitlesData = [];
+       let subtitlesData = [];
 
         //GOES TO THE MAIN PAGE FOR THE MOVIE/SERIES.
-        const mainPageURL  = await mainPageFinder(imdbId, agentConfig)
+        const mainPageURL  = await mainPageFinder(imdbId)
         if(mainPageURL.length > 0){
 
             const mainPageHTML = await axios({url:mainPageURL,method:"GET", headers:{"user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36"}})
@@ -85,7 +129,7 @@ module.exports = async function subtitlePageFinder(imdbId,type, season, episode,
             let stremioElements = []
             
             for (let i= 0; i <subtitlesData.length; i++) {
-                let subIDs = await subIDfinder(subtitlesData[i].pageUrl, agentConfig)
+                let subIDs = await subIDfinder(subtitlesData[i].pageUrl)
                 
                 let idid = subIDs[0].idid
                 let altid = subIDs[0].altid
@@ -104,6 +148,9 @@ module.exports = async function subtitlePageFinder(imdbId,type, season, episode,
         }
     } catch (e) {
         console.error("Error happened on subtitlePageFinder",e);
+        return stremioElements = []
     }
     
 }
+
+module.exports = subtitlePageFinder

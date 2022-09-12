@@ -1,5 +1,5 @@
 var env = process.env.NODE_ENV ? 'beamup':'local';
-const getProxy = require('./lib/getProxy')
+const getProxy = require('./getProxy')
 
 var config = {
     turkceAltyaziURL: 'turkcealtyazi.org',

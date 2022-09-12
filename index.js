@@ -3,7 +3,8 @@ const express = require("express");
 const landing = require('./landingTemplate');
 const addon = express();
 const axios = require('axios')
-const subtitlePageFinder = require("./lib/subtitlePageFinder");
+// const subtitlePageFinder = require("./lib/subtitlePageFinder");
+const subtitlePageFinder = require("./scraper");
 const config = require('./config');
 const MANIFEST = require('./manifest');
 const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
@@ -67,11 +68,12 @@ addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
       respond(res, myCache.get(req.params.imdbId)); 
     } else {
       const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
+      console.log(subtitles)
       if (subtitles.length > 0){
-        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 2*60*60) // 2 hours
+        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 15*60) // 15 mins
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
       } else {
-        myCache.set(req.params.imdbId, {subtitles: subtitles}, 10*60) // 10 mins
+        myCache.set(req.params.imdbId, {subtitles: subtitles}, 2*60) // 2 mins
         respond(res, { subtitles: subtitles});
       }
     }
@@ -92,31 +94,26 @@ addon.get('/cache-status', function (req, res) {
 });
 
 addon.get('/addon-status', async function (req, res) {
-  try {
-    let proxyStatus, websiteStatus
-
-    const responseProxy = await axios.get("https://api.ipify.org/?format=json");
-    const responseWebsite = await axios.get("https://api-prod.downfor.cloud/httpcheck/https://turkcealtyazi.org")
-
-    if(responseProxy.data.ip = axios.defaults.httpsAgent.proxy.hostname){
-      proxyStatus = "OK!"
-    } else {
+  
+    let proxyStatus
+    try {
+      const responseProxy = await axios.get("https://api.myip.com/");
+      if(responseProxy.data.cc.trim()==="TR"){
+        proxyStatus = "OK!"
+      }else{
+        proxyStatus = "FAIL!"
+      }
+    } catch (error) {
       proxyStatus = "FAIL!"
+      res.send("Could not connect to https://api.myip.com/")
     }
-
-    if(responseWebsite.data.isDown === false) {
-      websiteStatus = "OK!"
-    }else if (responseWebsite.data.isDown === true){
-      websiteStatus = "DOWN!"
-    }
-
-    return res.send(`Proxy Status: ${proxyStatus} - Website Status: ${websiteStatus}`)
-    
-  } catch (err) {
-    console.log(err)
-    return res.send("Error ocurred.")
-  }
+    return res.send(`Proxy Status: ${proxyStatus}`)    
 });
+
+addon.get('*', function(req, res){
+  res.redirect("/")
+});
+
 
 if (module.parent) {
   module.exports = addon;
