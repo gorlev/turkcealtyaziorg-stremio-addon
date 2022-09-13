@@ -11,7 +11,7 @@ const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
 const proxy = process.env.PROXY_LINK;
 const NodeCache = require( "node-cache" );
 
-const myCache = new NodeCache();
+const myCache = new NodeCache({ stdTTL: 15*60, checkperiod: 120 });
 
 const agentConfig = {
   proxy: proxy,
@@ -59,15 +59,15 @@ addon.get('/download/:idid\-:altid.zip', async function (req, res) {
 
 addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
   try {
-    let videoId =  req.params.imdbId.split(":")[0]
-    let season = Number(req.params.imdbId.split(":")[1])
-    let episode = Number(req.params.imdbId.split(":")[2])
-    let type = req.params.type
+    let {type,imdbId,query} = req.params
+    let videoId =  imdbId.split(":")[0]
+    let season = Number(imdbId.split(":")[1])
+    let episode = Number(imdbId.split(":")[2])
 	    
     if (myCache.has(req.params.imdbId)) {
       respond(res, myCache.get(req.params.imdbId)); 
     } else {
-      const subtitles = await subtitlePageFinder(videoId, type, season, episode, agentConfig);
+      const subtitles = await subtitlePageFinder(videoId, type, season, episode);
       console.log(subtitles)
       if (subtitles.length > 0){
         myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 15*60) // 15 mins
@@ -95,19 +95,20 @@ addon.get('/cache-status', function (req, res) {
 
 addon.get('/addon-status', async function (req, res) {
   
-    let proxyStatus
-    try {
-      const responseProxy = await axios.get("https://api.myip.com/");
-      if(responseProxy.data.cc.trim()==="TR"){
-        proxyStatus = "OK!"
-      }else{
-        proxyStatus = "FAIL!"
-      }
-    } catch (error) {
+  let proxyStatus
+  try {
+    const responseProxy = await axios.get("https://api.myip.com/");
+    if(responseProxy.data.cc.trim()==="TR"){
+      proxyStatus = "OK!"
+    }else{
       proxyStatus = "FAIL!"
-      res.send("Could not connect to https://api.myip.com/")
     }
-    return res.send(`Proxy Status: ${proxyStatus}`)    
+  } catch (error) {
+    proxyStatus = "SERVER DOWN!"
+    res.send("Could not connect to https://api.myip.com/")
+  }
+
+  return res.send(`Proxy Status: ${proxyStatus}`)    
 });
 
 addon.get('*', function(req, res){

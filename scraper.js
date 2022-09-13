@@ -43,7 +43,7 @@ async function subIDfinder(subLink) {
         $('form[action="/ind"] > div').each((i, section) => {
             let idid = $(section).children('input[name="idid"]').attr('value')
             let altid = $(section).children('input[name="altid"]').attr('value')
-            subIDs.push({idid: idid, altid: altid})    
+            subIDs.push({idid,altid})    
         }).get()    
 
         return subIDs
@@ -116,15 +116,10 @@ async function subtitlePageFinder(imdbId,type, season, episode) {
                             subLang = subLang.substring(4)
                             subtitlesData.push({ lang:subLang , pageUrl: subPageURL, season: seasonNumber, episode: episodeNumber})
                         }
-                    }
-                    
-                    
+                    }          
                 }).get()
             }
-        
-        
-            //console.log(subtitlesData.length, "subtitles found")
-            
+                    
             //CREATES DOWNLOAD LINK FOR THE POST REQUEST.
             let stremioElements = []
             
@@ -137,10 +132,7 @@ async function subtitlePageFinder(imdbId,type, season, episode) {
                 let lang = "tur"
                 let url = `http://127.0.0.1:11470/subtitles.vtt?from=${config.local}/download/${idid}-${altid}.zip`
                 
-                stremioElements.push({  url: url, 
-                    lang: lang, 
-                    id: altid,
-                })
+                stremioElements.push({url,lang,id:altid})
             }
 
             return stremioElements;
