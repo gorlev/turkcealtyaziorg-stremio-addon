@@ -20,7 +20,7 @@ const limiter = rateLimit({
 	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 })
 
-app.set('trust proxy', process.env.TRUST_PROXY_NUMBER)
+app.set('trust proxy', Number(process.env.TRUST_PROXY_NUMBER) || 1)
 
 const myCache = new NodeCache({ stdTTL: 15*60, checkperiod: 120 });
 
