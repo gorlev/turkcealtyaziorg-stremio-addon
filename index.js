@@ -1,7 +1,7 @@
 require('dotenv').config({path: './.env'});
 const express = require("express");
 const landing = require('./landingTemplate');
-const addon = express();
+const app = express();
 const axios = require('axios')
 // const subtitlePageFinder = require("./lib/subtitlePageFinder");
 const subtitlePageFinder = require("./scraper");
@@ -10,7 +10,15 @@ const MANIFEST = require('./manifest');
 const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
 const proxy = process.env.PROXY_LINK;
 const NodeCache = require( "node-cache" );
+const isItDownForMe = require('./addonStatus');
+const rateLimit = require('express-rate-limit')
 
+const limiter = rateLimit({
+	windowMs: 15 * 60 * 1000, // 15 minutes
+	max: 30, // Limit each IP to 30 requests per `window` (here, per 15 minutes)
+	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+})
 const myCache = new NodeCache({ stdTTL: 15*60, checkperiod: 120 });
 
 const agentConfig = {
@@ -35,16 +43,40 @@ var respond = function (res, data) {
   res.send(data);
 };
 
-addon.get('/', function (req, res) {
+app.get('/', function (req, res) {
   res.set('Content-Type', 'text/html');
 	res.send(landing(MANIFEST));
 });
 
-addon.get('/manifest.json', function (req, res) {
-  respond(res, MANIFEST);
+app.get("/:userConf?/configure", function (req, res) {
+  if(req.params.userConf !== "addon"){
+    res.redirect("/addon/configure")
+  }else{
+    res.set('Content-Type', 'text/html');
+    const newManifest = { ...MANIFEST };
+    res.send(landing(newManifest));
+  }
 });
 
-addon.get('/download/:idid\-:altid.zip', async function (req, res) {
+app.get('/manifest.json',function (req, res) {
+  const newManifest = { ...MANIFEST };
+  // newManifest.behaviorHints.configurationRequired = false;
+  newManifest.behaviorHints.configurationRequired = true;
+  respond(res, newManifest);
+});
+
+app.get('/:userConf/manifest.json', function (req, res) {
+  const newManifest = { ...MANIFEST };
+  if (!((req || {}).params || {}).userConf) {
+    newManifest.behaviorHints.configurationRequired = true;
+    respond(res, newManifest);
+  } else {
+    newManifest.behaviorHints.configurationRequired = false;
+    respond(res, newManifest);
+  }
+});
+
+app.get('/download/:idid\-:altid.zip', limiter, async function (req, res) {
   try {
     res.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, stale-while-revalidate:${STALE_REVALIDATE_AGE}, stale-if-error:${STALE_ERROR_AGE}`);
     
@@ -57,7 +89,7 @@ addon.get('/download/:idid\-:altid.zip', async function (req, res) {
   }
 });
 
-addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
+app.get('/:userConf?/subtitles/:type/:imdbId/:query?.json',limiter, async function (req, res) {
   try {
     let {type,imdbId,query} = req.params
     let videoId =  imdbId.split(":")[0]
@@ -68,7 +100,6 @@ addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
       respond(res, myCache.get(req.params.imdbId)); 
     } else {
       const subtitles = await subtitlePageFinder(videoId, type, season, episode);
-      console.log(subtitles)
       if (subtitles.length > 0){
         myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 15*60) // 15 mins
         respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
@@ -84,42 +115,77 @@ addon.get('/subtitles/:type/:imdbId/:query?.json', async (req, res) => {
 	}
 })
 
-addon.get('/cache-status', function (req, res) {
+app.get('/cache-status/:devpass?/:query?/:key?', function (req, res) {
+  let {devpass,query,key} = req.params
+  const devKey = process.env.DEV_KEY;
   try {
-    return res.send(myCache.getStats())
+    if(devKey == devpass){
+      if(query == "keys"){
+        res.send(myCache.keys())
+      }else if(query == "flushAll"){
+        res.send(myCache.flushAll())
+      }else if(query == "flushStats"){
+        res.send(myCache.flushStats())
+      }else if(query == "get"){
+        if(key){
+          res.send(myCache.get(key))
+        }else{
+          res.send("You forgot to send the key!")
+        }
+      }else if(query == "getStats"){
+        res.send(myCache.getStats())
+      }else{
+        res.send("Missing or wrong parameter.")
+      }
+    }else{
+      return res.send("You shouldn't be here.")
+    }
   } catch (err) {
     console.log(err)
     return res.send("Error ocurred.")
   }
 });
 
-addon.get('/addon-status', async function (req, res) {
-  
-  let proxyStatus
-  try {
-    const responseProxy = await axios.get("https://api.myip.com/");
-    if(responseProxy.data.cc.trim()==="TR"){
-      proxyStatus = "OK!"
-    }else{
-      proxyStatus = "FAIL!"
+app.get('/app-status/:devpass?', async function (req, res) {
+  let {devpass} = req.params
+  const devKey = process.env.DEV_KEY;
+  if(devpass == devKey){
+    let proxyStatus,websiteStatus
+    try {
+      const responseProxy = await axios.get("https://api.myip.com/");
+      if(responseProxy.data.cc.trim()==="TR"){
+        proxyStatus = "OK!"
+      }else{
+        proxyStatus = "FAIL!"
+      }
+    } catch (error) {
+      proxyStatus = "SERVER DOWN!"
     }
-  } catch (error) {
-    proxyStatus = "SERVER DOWN!"
-    res.send("Could not connect to https://api.myip.com/")
-  }
-
-  return res.send(`Proxy Status: ${proxyStatus}`)    
+    
+    try {
+      websiteStatus = await isItDownForMe()
+      if(websiteStatus.status == 1 && websiteStatus.result.status == "Site Online"){
+        websiteStatus = "OK!"
+      }else{
+        websiteStatus = "FAIL!"
+      }
+    } catch (error) {
+      websiteStatus = "WEBSITE DOWN!"
+    }
+    return res.send(`Proxy Status: ${proxyStatus}\nWebsite Status: ${websiteStatus} `)
+  }else{
+    return res.send("You shouldn't be here.")
+  }  
 });
 
-addon.get('*', function(req, res){
+app.get('*', function(req, res){
   res.redirect("/")
 });
 
-
 if (module.parent) {
-  module.exports = addon;
+  module.exports = app;
 } else {
-  addon.listen(config.port, function () {
+  app.listen(config.port, function () {
     console.log(config)
   });
 }

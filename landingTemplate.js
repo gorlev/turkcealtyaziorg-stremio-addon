@@ -142,18 +142,17 @@ function landingTemplate(manifest) {
             <button name="Install">YÜKLE</button>
          </a>
          <div class="separator"></div>
-         <p>Bu eklenti şu anda beta sürecindedir.<br>
          <div class="separator"></div>
          <p>TurkceAltyazi.org yurtdışından erişimde CloudFlare ile korunduğundan bu eklentinin çeşitli maliyetleri olmaktadır. Bu maliyetleri ne kadar uzun süre karşılayabilirim bilemediğimden yapacağınız en küçük bağış eklentinin hayatta kalabilmesi için faydalı olacaktır.<br>
-         <p>BTC: 1QC9HKAdibRAQuXxrt3RMtWaUKCU5XznDs<br>
-         <p>ETH: 0x2f807adfb3daf3d25a65861912124f0b408023cf<br>
+         <p><b>BTC:</b> 1QC9HKAdibRAQuXxrt3RMtWaUKCU5XznDs<br>
+         <p><b>ETH, USDT, USDC, BUSD (ERC20 / BEP20):</b> 0x2f807adfb3daf3d25a65861912124f0b408023cf<br>
          <div class="separator"></div>
 
          <p>İletişim: gorlevdev@gmail.com<br>
 
       </div>
       <script>
-         installLink.href = 'stremio://' + window.location.host + '/manifest.json'
+         installLink.href = 'stremio://' + window.location.host + '/addon/manifest.json'
       </script>
 	</body>
 	</html>`
