@@ -19,6 +19,9 @@ const limiter = rateLimit({
 	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
 	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 })
+
+app.set('trust proxy', process.env.TRUST_PROXY_NUMBER)
+
 const myCache = new NodeCache({ stdTTL: 15*60, checkperiod: 120 });
 
 const agentConfig = {
@@ -177,6 +180,10 @@ app.get('/app-status/:devpass?', async function (req, res) {
     return res.send("You shouldn't be here.")
   }  
 });
+
+app.get('/ip', function (req, res) {
+  res.send(req.ip)
+}); 
 
 app.get('*', function(req, res){
   res.redirect("/")
