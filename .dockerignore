@@ -1,0 +1,12 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+npm-debug.log*
+coverage
+graphify-out
+test
+test-support
+beamup.json

@@ -1,27 +1,27 @@
 {
   "name": "turkcealtyazi-stremio-addon",
-  "version": "1.0.0",
-  "description": "",
+  "version": "2.0.0",
+  "description": "Unofficial TurkceAltyazi.org subtitle addon for Stremio",
   "main": "index.js",
-  "directories": {
-    "images": "images"
-  },
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test",
+    "check": "npm test && npm audit --omit=dev"
   },
   "engines": {
-    "node": "14.16.0",
-    "npm": "7.21.1"
+    "node": ">=20.18.1"
   },
-  "author": "gorlev",
   "license": "MIT",
   "dependencies": {
-    "axios": "^0.22.0",
-    "cheerio": "^1.0.0-rc.5",
-    "dotenv": "^10.0.0",
-    "express": "^4.17.1",
-    "express-rate-limit": "^6.6.0",
-    "hpagent": "^0.1.2",
-    "node-cache": "^5.1.2"
+    "axios": "^1.20.0",
+    "cheerio": "^1.1.2",
+    "dotenv": "^17.2.2",
+    "express": "^5.1.0",
+    "hpagent": "^1.2.0",
+    "socks-proxy-agent": "^8.0.5",
+    "unzipper": "^0.12.3"
+  },
+  "devDependencies": {
+    "yazl": "^3.3.1"
   }
 }

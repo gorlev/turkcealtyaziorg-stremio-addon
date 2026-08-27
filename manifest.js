@@ -1,14 +1,20 @@
-module.exports={
-    id: "org.community.turkcealtyaziorg",
-    version: "1.1.1",
-    name: "TurkceAltyazi.Org",
-    logo: "https://raw.githubusercontent.com/gorlev/turkcealtyaziorg-stremio-addon/master/images/logo.png",
-    description: "Bu eklenti,TurkceAltyazi.org'dan tüm Türkçe altyazıları alır ve Stremio'nuza getirir.",
-    contactEmail: "gorlevdev@gmail.com",
-    types: ["movie", "series"],
-    background: "https://raw.githubusercontent.com/gorlev/turkcealtyaziorg-stremio-addon/master/images/background.webp",
-    resources: ["subtitles"],
-    catalogs: [],
-    idPrefixes: ["tt"],
-    behaviorHints:{configurable : true, configurationRequired: true }
+module.exports = {
+  id: 'org.community.turkcealtyaziorg',
+  version: '2.0.0',
+  name: 'TurkceAltyazi.Org',
+  description: "TurkceAltyazi.org'daki Türkçe film ve dizi altyazılarını Stremio'ya getirir.",
+  types: ['movie', 'series'],
+  resources: [
+    {
+      name: 'subtitles',
+      types: ['movie', 'series'],
+      idPrefixes: ['tt'],
+    },
+  ],
+  catalogs: [],
+  idPrefixes: ['tt'],
+  behaviorHints: {
+    configurable: false,
+    configurationRequired: false,
+  },
 };

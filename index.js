@@ -1,198 +1,191 @@
-require('dotenv').config({path: './.env'});
-const express = require("express");
-const landing = require('./landingTemplate');
-const app = express();
-const axios = require('axios')
-// const subtitlePageFinder = require("./lib/subtitlePageFinder");
-const subtitlePageFinder = require("./scraper");
+require('dotenv').config({ quiet: true });
+
+const crypto = require('node:crypto');
+const path = require('node:path');
+const express = require('express');
 const config = require('./config');
-const MANIFEST = require('./manifest');
-const { HttpProxyAgent, HttpsProxyAgent } = require("hpagent");
-const proxy = process.env.PROXY_LINK;
-const NodeCache = require( "node-cache" );
-const isItDownForMe = require('./addonStatus');
-const rateLimit = require('express-rate-limit')
+const landingTemplate = require('./landingTemplate');
+const manifest = require('./manifest');
+const { createDefaultSubtitleService } = require('./scraper');
 
-const limiter = rateLimit({
-	windowMs: 15 * 60 * 1000, // 15 minutes
-	max: 30, // Limit each IP to 30 requests per `window` (here, per 15 minutes)
-	standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-	legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-})
+const SEARCH_CACHE_SECONDS = 15 * 60;
+const EMPTY_CACHE_SECONDS = 2 * 60;
+const SUBTITLE_CACHE_SECONDS = 24 * 60 * 60;
 
-app.set('trust proxy', Number(process.env.TRUST_PROXY_NUMBER) || 1)
+function requestBaseUrl(req, configuredUrl, port) {
+  if (configuredUrl) return configuredUrl;
 
-const myCache = new NodeCache({ stdTTL: 15*60, checkperiod: 120 });
-
-const agentConfig = {
-  proxy: proxy,
-  keepAlive: true,
-  keepAliveMsecs: 2000,
-  maxSockets: 256,
-  maxFreeSockets: 256,
-};
-
-axios.defaults.httpAgent = new HttpProxyAgent(agentConfig);
-axios.defaults.httpsAgent = new HttpsProxyAgent(agentConfig);
-
-const CACHE_MAX_AGE = 4 * 60 * 60; // 4 hours in seconds
-const STALE_REVALIDATE_AGE = 4 * 60 * 60; // 4 hours
-const STALE_ERROR_AGE = 7 * 24 * 60 * 60; // 7 days
-
-var respond = function (res, data) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', '*');
-  res.setHeader('Content-Type', 'application/json');
-  res.send(data);
-};
-
-app.get('/', function (req, res) {
-  res.set('Content-Type', 'text/html');
-	res.send(landing(MANIFEST));
-});
-
-app.get("/:userConf?/configure", function (req, res) {
-  if(req.params.userConf !== "addon"){
-    res.redirect("/addon/configure")
-  }else{
-    res.set('Content-Type', 'text/html');
-    const newManifest = { ...MANIFEST };
-    res.send(landing(newManifest));
-  }
-});
-
-app.get('/manifest.json',function (req, res) {
-  const newManifest = { ...MANIFEST };
-  // newManifest.behaviorHints.configurationRequired = false;
-  newManifest.behaviorHints.configurationRequired = true;
-  respond(res, newManifest);
-});
-
-app.get('/:userConf/manifest.json', function (req, res) {
-  const newManifest = { ...MANIFEST };
-  if (!((req || {}).params || {}).userConf) {
-    newManifest.behaviorHints.configurationRequired = true;
-    respond(res, newManifest);
-  } else {
-    newManifest.behaviorHints.configurationRequired = false;
-    respond(res, newManifest);
-  }
-});
-
-app.get('/download/:idid\-:altid.zip', limiter, async function (req, res) {
   try {
-    res.set('Cache-Control', `public, max-age=${CACHE_MAX_AGE}, stale-while-revalidate:${STALE_REVALIDATE_AGE}, stale-if-error:${STALE_ERROR_AGE}`);
-    
-    const response = await axios({url: 'https://turkcealtyazi.org/ind', method: "POST", headers: {"Accept": 'application/zip', "user-agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/97.0.4692.71 Safari/537.36"}, data:`idid=${req.params.idid}&altid=${req.params.altid}`, responseEncoding: "null", responseType: 'arraybuffer'});
-    return res.send(response.data)
-    
-  } catch (err) {
-    console.log(err)
-    return res.send("Couldn't get the subtitle.")
+    return new URL(`${req.protocol}://${req.get('host')}`).origin;
+  } catch {
+    return `http://127.0.0.1:${port}`;
   }
-});
+}
 
-app.get('/:userConf?/subtitles/:type/:imdbId/:query?.json',limiter, async function (req, res) {
-  try {
-    let {type,imdbId,query} = req.params
-    let videoId =  imdbId.split(":")[0]
-    let season = Number(imdbId.split(":")[1])
-    let episode = Number(imdbId.split(":")[2])
-	    
-    if (myCache.has(req.params.imdbId)) {
-      respond(res, myCache.get(req.params.imdbId)); 
-    } else {
-      const subtitles = await subtitlePageFinder(videoId, type, season, episode);
-      if (subtitles.length > 0){
-        myCache.set(req.params.imdbId, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE}, 15*60) // 15 mins
-        respond(res, { subtitles: subtitles, cacheMaxAge: CACHE_MAX_AGE, staleRevalidate: STALE_REVALIDATE_AGE, staleError: STALE_ERROR_AGE});
-      } else {
-        myCache.set(req.params.imdbId, {subtitles: subtitles}, 2*60) // 2 mins
-        respond(res, { subtitles: subtitles});
-      }
-    }
+function parseMediaId(type, rawId) {
+  if (!['movie', 'series'].includes(type)) throw new TypeError('Unsupported media type');
+  const parts = rawId.split(':');
+  const imdbId = parts[0];
+  if (!/^tt\d+$/.test(imdbId)) throw new TypeError('Invalid IMDb id');
 
-	} catch (err) {
-    console.log(err);
-    respond(res, { "subtitles" : [] });
-	}
-})
+  if (type === 'movie') return { imdbId, type, season: null, episode: null };
 
-app.get('/cache-status/:devpass?/:query?/:key?', function (req, res) {
-  let {devpass,query,key} = req.params
-  const devKey = process.env.DEV_KEY;
-  try {
-    if(devKey == devpass){
-      if(query == "keys"){
-        res.send(myCache.keys())
-      }else if(query == "flushAll"){
-        res.send(myCache.flushAll())
-      }else if(query == "flushStats"){
-        res.send(myCache.flushStats())
-      }else if(query == "get"){
-        if(key){
-          res.send(myCache.get(key))
-        }else{
-          res.send("You forgot to send the key!")
-        }
-      }else if(query == "getStats"){
-        res.send(myCache.getStats())
-      }else{
-        res.send("Missing or wrong parameter.")
-      }
-    }else{
-      return res.send("You shouldn't be here.")
-    }
-  } catch (err) {
-    console.log(err)
-    return res.send("Error ocurred.")
+  const season = Number(parts[1]);
+  const episode = Number(parts[2]);
+  if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode < 1) {
+    throw new TypeError('Series ids must include a valid season and episode');
   }
-});
+  return { imdbId, type, season, episode };
+}
 
-app.get('/app-status/:devpass?', async function (req, res) {
-  let {devpass} = req.params
-  const devKey = process.env.DEV_KEY;
-  if(devpass == devKey){
-    let proxyStatus,websiteStatus
+function subtitleUrl(baseUrl, subtitle, media) {
+  const season = media.season ?? 0;
+  const episode = media.episode ?? 0;
+  return `${baseUrl}/subtitle/${encodeURIComponent(subtitle.token)}/${season}/${episode}.vtt`;
+}
+
+function publicManifest(addonManifest, baseUrl) {
+  return {
+    ...addonManifest,
+    logo: `${baseUrl}/images/logo.png`,
+    background: `${baseUrl}/images/background.webp`,
+  };
+}
+
+function cacheControl({ maxAge, staleRevalidate = 4 * 60 * 60, staleError = 7 * 24 * 60 * 60 }) {
+  return `public, max-age=${maxAge}, stale-while-revalidate=${staleRevalidate}, stale-if-error=${staleError}`;
+}
+
+function createApp({
+  service = createDefaultSubtitleService(),
+  appConfig = config,
+  addonManifest = manifest,
+  logger = console,
+} = {}) {
+  const app = express();
+  app.disable('x-powered-by');
+  app.set('trust proxy', appConfig.trustProxy);
+
+  app.use((req, res, next) => {
+    res.set({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, If-None-Match',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Referrer-Policy': 'no-referrer',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
+  app.use(
+    '/images',
+    express.static(path.join(__dirname, 'images'), {
+      immutable: true,
+      maxAge: '7d',
+    }),
+  );
+
+  app.get('/', (req, res) => {
+    const baseUrl = requestBaseUrl(req, appConfig.publicUrl, appConfig.port);
+    res.set(
+      'Content-Security-Policy',
+      "default-src 'none'; img-src 'self' https: data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'none'; base-uri 'none'; form-action 'none'",
+    );
+    res.type('html').send(landingTemplate(addonManifest, `${baseUrl}/manifest.json`));
+  });
+
+  app.get(['/configure', '/addon/configure'], (req, res) => res.redirect(302, '/'));
+
+  app.get(['/manifest.json', '/addon/manifest.json'], (req, res) => {
+    const baseUrl = requestBaseUrl(req, appConfig.publicUrl, appConfig.port);
+    res.set('Cache-Control', cacheControl({ maxAge: 60 * 60 }));
+    res.json(publicManifest(addonManifest, baseUrl));
+  });
+
+  const subtitleListRoutes = [
+    '/subtitles/:type/:imdbId.json',
+    '/subtitles/:type/:imdbId/:query.json',
+    '/addon/subtitles/:type/:imdbId.json',
+    '/addon/subtitles/:type/:imdbId/:query.json',
+  ];
+
+  app.get(subtitleListRoutes, async (req, res) => {
+    let media;
     try {
-      const responseProxy = await axios.get("https://api.myip.com/");
-      if(responseProxy.data.cc.trim()==="TR"){
-        proxyStatus = "OK!"
-      }else{
-        proxyStatus = "FAIL!"
-      }
+      media = parseMediaId(req.params.type, req.params.imdbId);
     } catch (error) {
-      proxyStatus = "SERVER DOWN!"
+      return res.status(400).json({ subtitles: [], error: error.message });
     }
-    
+
     try {
-      websiteStatus = await isItDownForMe()
-      if(websiteStatus.status == 1 && websiteStatus.result.status == "Site Online"){
-        websiteStatus = "OK!"
-      }else{
-        websiteStatus = "FAIL!"
-      }
+      const results = await service.findSubtitles(media);
+      const baseUrl = requestBaseUrl(req, appConfig.publicUrl, appConfig.port);
+      const subtitles = results.map((subtitle) => ({
+        id: subtitle.id,
+        lang: subtitle.lang,
+        url: subtitleUrl(baseUrl, subtitle, media),
+      }));
+
+      res.set(
+        'Cache-Control',
+        cacheControl({ maxAge: subtitles.length > 0 ? SEARCH_CACHE_SECONDS : EMPTY_CACHE_SECONDS }),
+      );
+      return res.json({ subtitles });
     } catch (error) {
-      websiteStatus = "WEBSITE DOWN!"
+      logger.error?.('Subtitle lookup failed', { error: error.message, imdbId: media.imdbId });
+      return res.status(502).json({ subtitles: [] });
     }
-    return res.send(`Proxy Status: ${proxyStatus}\nWebsite Status: ${websiteStatus} `)
-  }else{
-    return res.send("You shouldn't be here.")
-  }  
-});
+  });
 
-app.get('/ip', function (req, res) {
-  res.send(req.ip)
-}); 
+  app.get('/subtitle/:token/:season/:episode.vtt', async (req, res) => {
+    const season = Number(req.params.season);
+    const episode = Number(req.params.episode);
+    if (!Number.isInteger(season) || season < 0 || !Number.isInteger(episode) || episode < 0) {
+      return res.status(400).type('text').send('Invalid season or episode');
+    }
 
-app.get('*', function(req, res){
-  res.redirect("/")
-});
+    try {
+      const subtitle = await service.getSubtitle({
+        token: req.params.token,
+        season: season || null,
+        episode: episode || null,
+      });
+      const etag = `"${crypto.createHash('sha256').update(subtitle.body).digest('base64url')}"`;
+      res.set({
+        'Cache-Control': cacheControl({ maxAge: SUBTITLE_CACHE_SECONDS }),
+        'Content-Disposition': `inline; filename="${path.parse(subtitle.sourceName).name}.vtt"`,
+        'Content-Type': 'text/vtt; charset=utf-8',
+        ETag: etag,
+      });
+      if (req.headers['if-none-match'] === etag) return res.status(304).end();
+      return res.send(subtitle.body);
+    } catch (error) {
+      const clientError = error instanceof TypeError;
+      const notFound = /not found|contains no supported/i.test(error.message);
+      const status = clientError ? 400 : notFound ? 404 : 502;
+      if (status === 502) logger.error?.('Subtitle delivery failed', { error: error.message });
+      return res.status(status).type('text').send(status === 404 ? 'Subtitle not found' : 'Subtitle unavailable');
+    }
+  });
 
-if (module.parent) {
-  module.exports = app;
-} else {
-  app.listen(config.port, function () {
-    console.log(config)
+  app.get('/healthz', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json({ status: 'ok', proxy: service.proxyEnabled ? 'enabled' : 'disabled' });
+  });
+
+  app.use((req, res) => res.redirect(302, '/'));
+  return app;
+}
+
+if (require.main === module) {
+  createApp().listen(config.port, () => {
+    console.log(`TurkceAltyazi Stremio addon listening on port ${config.port}`);
+    console.log(`Outbound proxy: ${config.proxyUrl ? 'enabled' : 'disabled'}`);
   });
 }
+
+module.exports = createApp();
+module.exports.createApp = createApp;
+module.exports.parseMediaId = parseMediaId;
+module.exports.publicManifest = publicManifest;
